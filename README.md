@@ -1,36 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# StockAlert - Real-Time Drug Stock Monitoring System
+
+StockAlert is a real-time drug stock monitoring system designed to streamline communication between clinic staff, supply chain managers, and hospital administrators.
+
+## Problem
+
+Clinics often run out of essential drugs without warning, leading to delays in patient care, increased mortality risk, and inefficient resource allocation.
+
+## Solution
+
+StockAlert provides an integrated platform with the following key features:
+
+1. **Low Stock Reporting via USSD API**
+   - Clinic staff can quickly report low stock levels using a simple USSD menu (e.g., 123 456#)
+   - USSD API allows for offline or low-bandwidth reporting
+   - Staff can select drug name, quantity remaining, and urgency level
+
+2. **SMS Alerts to Supply Chain Teams**
+   - Automated SMS alerts to supply chain managers when a drug falls below pre-set thresholds
+   - Alerts include clinic name/ID, drug name, quantity, time, and location
+
+3. **Incentivize Reporting with Airtime API**
+   - Rewards clinic staff with airtime for prompt and accurate reporting
+   - Automatic rewards upon successful alert submission
+
+4. **Visual Dashboard for Administrators**
+   - Real-time visibility into current stock levels across clinics
+   - Historical trends and restock frequency
+   - Alert response times and staff participation metrics
+
+## Technology Stack
+
+- **Frontend**: Next.js with TypeScript and TailwindCSS
+- **Backend**: Firebase (Authentication and Firestore database)
+- **APIs**:
+  - USSD API for low-tech, accessible reporting
+  - SMS Gateway for sending alerts
+  - Airtime API for staff rewards
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- Node.js 18.x or later
+- npm or yarn
+- Firebase account
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/stock-alert.git
+cd stock-alert
+```
+
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Set up environment variables by copying `.env.example` to `.env.local` and filling in your Firebase credentials:
+```bash
+cp .env.example .env.local
+```
+
+4. Start the development server:
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features and User Roles
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Hospital/Clinic Staff
+- Report low stock levels via web interface or USSD
+- View current inventory status
+- Track history of alerts and resupply
 
-## Learn More
+### Suppliers
+- Receive alerts for low stock items
+- Manage and prioritize resupply requests
+- Mark alerts as acknowledged or fulfilled
 
-To learn more about Next.js, take a look at the following resources:
+### Administrators
+- Access analytics dashboard
+- Monitor system performance
+- Manage users and settings
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Benefits
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Improved Patient Care**: Ensures availability of essential drugs at critical times
+- **Efficient Supply Chain**: Reduces delays and overstocking with proactive restocking
+- **Staff Engagement**: Motivates clinic workers through instant incentives
+- **Data-Driven Decisions**: Enables administrators to optimize resource distribution
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under the MIT License - see the LICENSE file for details.
