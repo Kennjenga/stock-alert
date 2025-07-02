@@ -6,7 +6,7 @@ import { useDocument, updateDocument } from '@/app/hooks/useFirestore';
 import { StockAlert, InventoryItem } from '@/app/types';
 import { useRouter, useParams } from 'next/navigation';
 import { db } from '@/app/lib/firebase';
-import { runTransaction, collection, query, where, getDocs, doc, DocumentSnapshot } from 'firebase/firestore';
+import { runTransaction, collection, query, where, getDocs, doc } from 'firebase/firestore';
 
 
 export default function AlertDetailsPage() {

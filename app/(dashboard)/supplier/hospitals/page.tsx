@@ -5,7 +5,6 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useCollection } from '@/app/hooks/useFirestore';
 import { where } from 'firebase/firestore';
 import { StockAlert, UserData } from '@/app/types';
-import Link from 'next/link';
 
 export default function SupplierHospitalsPage() {
   const { userData } = useAuth();

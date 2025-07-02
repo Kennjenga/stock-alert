@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/app/context/AuthContext';
 import { useCollection } from '@/app/hooks/useFirestore';
-import { where, orderBy } from 'firebase/firestore';
-import { StockAlert, UrgencyLevel } from '@/app/types';
+import { where } from 'firebase/firestore';
+import { StockAlert, UrgencyLevel, DrugRequirement } from '@/app/types';
 
 // Helper function to determine urgency color
 const getUrgencyColor = (urgency: UrgencyLevel) => {
@@ -31,7 +31,7 @@ const getStatusColor = (status: 'pending' | 'acknowledged' | 'fulfilled' | 'canc
 
 export default function HospitalAlertsPage() {
   const { userData } = useAuth();
-  const [flattenedAlerts, setFlattenedAlerts] = useState<any[]>([]);
+  const [flattenedAlerts, setFlattenedAlerts] = useState<Array<StockAlert & { drug: DrugRequirement }>>([]);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 

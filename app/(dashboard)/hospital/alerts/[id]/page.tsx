@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../../context/AuthContext';
 import { useDocument } from '../../../../hooks/useFirestore';
@@ -8,13 +8,21 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../../lib/firebase';
 import { StockAlert, UrgencyLevel } from '../../../../types';
 
-export default function AlertDetailPage({ params }: { params: { id: string } }) {
+export default function AlertDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { userData } = useAuth();
   const router = useRouter();
   const [isUpdating, setIsUpdating] = useState(false);
+  const [alertId, setAlertId] = useState<string | null>(null);
+
+  // Extract the ID from params
+  useEffect(() => {
+    params.then((resolvedParams) => {
+      setAlertId(resolvedParams.id);
+    });
+  }, [params]);
 
   // Fetch the specific alert
-  const { data: alert, loading, error } = useDocument<StockAlert>('stockAlerts', params.id);
+  const { data: alert, loading, error } = useDocument<StockAlert>('stockAlerts', alertId || undefined);
 
   const getUrgencyColor = (urgency: UrgencyLevel) => {
     switch (urgency) {
@@ -37,11 +45,11 @@ export default function AlertDetailPage({ params }: { params: { id: string } }) 
   };
 
   const handleCancelAlert = async () => {
-    if (!alert || alert.status !== 'pending') return;
+    if (!alert || alert.status !== 'pending' || !alertId) return;
     
     setIsUpdating(true);
     try {
-      await updateDoc(doc(db, 'stockAlerts', params.id), {
+      await updateDoc(doc(db, 'stockAlerts', alertId), {
         status: 'cancelled',
         updatedAt: new Date().toISOString()
       });
@@ -82,7 +90,7 @@ export default function AlertDetailPage({ params }: { params: { id: string } }) 
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <p className="text-red-600">You don't have permission to view this alert</p>
+          <p className="text-red-600">You don&apos;t have permission to view this alert</p>
           <button
             onClick={() => router.back()}
             className="mt-4 text-blue-600 hover:text-blue-800"

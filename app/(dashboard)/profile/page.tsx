@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { updateProfile, updateEmail, updatePassword } from 'firebase/auth';
-import { auth, db } from '@/app/lib/firebase';
-import { UserData } from '@/app/types';
+import { db } from '@/app/lib/firebase';
 
 export default function ProfilePage() {
   const { userData, user } = useAuth();
@@ -78,9 +77,10 @@ export default function ProfilePage() {
       });
 
       setSuccess('Profile updated successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating profile:', error);
-      setError(error.message || 'Failed to update profile');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -112,9 +112,10 @@ export default function ProfilePage() {
         newPassword: '',
         confirmPassword: '',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating password:', error);
-      setError(error.message || 'Failed to update password');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update password';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

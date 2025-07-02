@@ -25,9 +25,10 @@ export default function Login() {
       setError(null);
       await login(data.email, data.password);
       router.push('/'); // This will take them to the dashboard
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err);
-      setError(err.message || 'Failed to login. Please check your credentials.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to login. Please check your credentials.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +122,7 @@ export default function Login() {
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link
               href="/register"
               className="font-semibold leading-6 text-blue-600 hover:text-blue-500"

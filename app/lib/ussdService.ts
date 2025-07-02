@@ -1,6 +1,6 @@
 // Service to handle USSD integrations
 import { addDocument } from '../hooks/useFirestore';
-import { Drug, StockAlert, UrgencyLevel } from '../types';
+import { StockAlert, UrgencyLevel } from '../types';
 import { sendAlertToSuppliers, formatStockAlertSMS } from './smsService';
 import { rewardUserWithAirtime } from './airtimeService';
 
@@ -21,10 +21,16 @@ export async function processUssdAlert(
     const alertId = await addDocument<Omit<StockAlert, 'id'>>('stockAlerts', {
       hospitalId,
       hospitalName,
-      drugId,
-      drugName,
-      quantity,
-      urgencyLevel,
+      facilityName: hospitalName,
+      drugs: [{
+        drugId,
+        drugName,
+        requestedQuantity: quantity,
+        urgencyLevel,
+        unit: 'units', // Default unit
+        category: 'general' // Default category
+      }],
+      overallUrgency: urgencyLevel,
       location,
       createdAt: new Date().toISOString(),
       status: 'pending',

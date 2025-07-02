@@ -1,16 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
+// import { useAuth } from '@/app/context/AuthContext'; // TODO: Use when implementing supplier filtering
 import { useCollection, updateDocument } from '@/app/hooks/useFirestore';
-import { where, orderBy } from 'firebase/firestore';
+import { orderBy } from 'firebase/firestore';
 import { StockAlert } from '@/app/types';
 import Link from 'next/link';
 
 export default function SupplierAlerts() {
-  const { userData } = useAuth();
+  // TODO: Use userData to filter alerts by supplier when the feature is implemented
+  // const { userData } = useAuth();
+  
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
+  
+  // TODO: Filter alerts by supplier when the feature is implemented
+  // For now, showing all alerts - this should be filtered by userData.uid in the future
   
   // Fetch all alerts as a supplier
   const alertsConstraints = [

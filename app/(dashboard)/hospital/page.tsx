@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 const HospitalDashboardPage = () => {
   return (
@@ -9,21 +10,21 @@ const HospitalDashboardPage = () => {
         <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
           <h2 className="text-xl font-semibold text-gray-700 mb-2">Alerts</h2>
           <p className="text-gray-600">View and manage stock alerts.</p>
-          <a href="/hospital/alerts" className="text-blue-500 hover:underline mt-4 inline-block">Go to Alerts</a>
+          <Link href="/hospital/alerts" className="text-blue-500 hover:underline mt-4 inline-block">Go to Alerts</Link>
         </div>
 
         {/* Card for Inventory */}
         <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
           <h2 className="text-xl font-semibold text-gray-700 mb-2">Inventory</h2>
           <p className="text-gray-600">Manage your inventory levels.</p>
-          <a href="/hospital/inventory" className="text-blue-500 hover:underline mt-4 inline-block">Manage Inventory</a>
+          <Link href="/hospital/inventory" className="text-blue-500 hover:underline mt-4 inline-block">Manage Inventory</Link>
         </div>
 
         {/* Card for Profile */}
         <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
           <h2 className="text-xl font-semibold text-gray-700 mb-2">Profile</h2>
-          <p className="text-gray-600">View and edit your hospital's profile.</p>
-          <a href="/profile" className="text-blue-500 hover:underline mt-4 inline-block">View Profile</a>
+          <p className="text-gray-600">View and edit your hospital&apos;s profile.</p>
+          <Link href="/profile" className="text-blue-500 hover:underline mt-4 inline-block">View Profile</Link>
         </div>
       </div>
     </div>

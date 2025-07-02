@@ -53,7 +53,7 @@ export async function POST(request: Request) {
           mockDrugId,
           mockDrugName,
           mockQuantity,
-          mockUrgencyLevel as any,
+          mockUrgencyLevel as 'low' | 'medium' | 'high' | 'critical',
           { address: 'Nairobi, Kenya' }
         ).catch(error => {
           console.error('Background processing failed:', error);

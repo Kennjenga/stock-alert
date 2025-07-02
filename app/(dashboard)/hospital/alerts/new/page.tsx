@@ -25,7 +25,7 @@ export default function NewAlertPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Fetch inventory to suggest drugs
-  const { data: inventory, loading: inventoryLoading } = useCollection<InventoryItem>(
+  const { data: inventory } = useCollection<InventoryItem>(
     'inventory',
     userData ? [where('hospitalId', '==', userData.uid)] : undefined,
     [userData?.uid]
@@ -67,19 +67,20 @@ export default function NewAlertPage() {
     setDrugs(drugs.filter((_, i) => i !== index));
   };
 
-  const handleInventorySelect = (inventoryItemId: string) => {
-    const selectedItem = inventory?.find(item => item.id === inventoryItemId);
-    if (selectedItem) {
-      setNewDrug({
-        drugId: selectedItem.drugId,
-        drugName: selectedItem.drugName,
-        requestedQuantity: selectedItem.minimumThreshold,
-        urgencyLevel: 'medium',
-        unit: selectedItem.unit,
-        category: selectedItem.category
-      });
-    }
-  };
+  // TODO: Implement inventory selection feature
+  // const handleInventorySelect = (inventoryItemId: string) => {
+  //   const selectedItem = inventory?.find(item => item.id === inventoryItemId);
+  //   if (selectedItem) {
+  //     setNewDrug({
+  //       drugId: selectedItem.drugId,
+  //       drugName: selectedItem.drugName,
+  //       requestedQuantity: selectedItem.minimumThreshold,
+  //       urgencyLevel: 'medium',
+  //       unit: selectedItem.unit,
+  //       category: selectedItem.category
+  //     });
+  //   }
+  // };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,9 +118,10 @@ export default function NewAlertPage() {
       
       router.push('/hospital/alerts');
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error creating alert:', err);
-      setError(err.message || 'Failed to create stock alert.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create stock alert.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

@@ -1,21 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   collection, 
   query, 
-  where, 
-  orderBy, 
-  limit, 
-  getDocs, 
   doc,
-  getDoc,
   addDoc,
   updateDoc,
   deleteDoc,
   DocumentData,
   QueryConstraint,
-  DocumentReference,
   onSnapshot
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -24,7 +18,7 @@ import { db } from '../lib/firebase';
 export function useCollection<T>(
   collectionName: string,
   constraints: QueryConstraint[] = [],
-  deps: any[] = []
+  deps: React.DependencyList = []
 ) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -62,6 +56,7 @@ export function useCollection<T>(
     };
 
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   return { data, loading, error };
@@ -71,7 +66,7 @@ export function useCollection<T>(
 export function useDocument<T>(
   collectionName: string,
   documentId: string | undefined,
-  deps: any[] = []
+  deps: React.DependencyList = []
 ) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -109,6 +104,7 @@ export function useDocument<T>(
     };
 
     fetchDocument();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collectionName, documentId, ...deps]);
 
   return { data, loading, error };

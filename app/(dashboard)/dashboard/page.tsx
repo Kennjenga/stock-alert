@@ -59,8 +59,26 @@ export default function Dashboard() {
   );
   
   // For data visualization
-  const [chartData, setChartData] = useState<any>(null);
-  const [doughnutData, setDoughnutData] = useState<any>(null);
+  const [chartData, setChartData] = useState<{
+    labels: string[];
+    datasets: Array<{
+      label: string;
+      data: number[];
+      backgroundColor: string[];
+      borderColor: string[];
+      borderWidth: number;
+    }>;
+  } | null>(null);
+  const [doughnutData, setDoughnutData] = useState<{
+    labels: string[];
+    datasets: Array<{
+      label: string;
+      data: number[];
+      backgroundColor: string[];
+      borderColor: string[];
+      borderWidth: number;
+    }>;
+  } | null>(null);
   
   // Calculate KPIs
   const kpis = {

@@ -46,9 +46,10 @@ export default function Register() {
         data.phoneNumber
       );
       router.push('/');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Registration error:', err);
-      setError(err.message || 'Failed to register. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to register. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

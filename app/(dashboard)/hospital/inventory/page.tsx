@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useCollection } from '@/app/hooks/useFirestore';
-import { collection, addDoc, updateDoc, deleteDoc, doc, where, orderBy } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, where } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
 import { InventoryItem, Supplier } from '@/app/types';
-import Link from 'next/link';
 
 export default function InventoryPage() {
   const { userData } = useAuth();
