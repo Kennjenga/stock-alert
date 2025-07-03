@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { useCollection } from '@/app/hooks/useFirestore';
-import { collection, addDoc, doc, getDoc, where } from 'firebase/firestore';
+import { collection, addDoc, where } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
 import { DrugRequirement, InventoryItem, UserData, StockAlert, UrgencyLevel } from '@/app/types';
 
@@ -22,12 +22,20 @@ export default function NewAlertPage() {
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<string>('');
 
   // Fetch inventory to suggest drugs
   const { data: inventory } = useCollection<InventoryItem>(
     'inventory',
     userData ? [where('hospitalId', '==', userData.uid)] : undefined,
     [userData?.uid]
+  );
+
+  // Fetch suppliers
+  const { data: suppliers } = useCollection<UserData>(
+    'users',
+    [where('role', '==', 'supplier')],
+    []
   );
 
   const handleAddDrug = () => {
@@ -95,6 +103,7 @@ export default function NewAlertPage() {
         hospitalId: userData.uid,
         hospitalName: userData.name || 'Unknown Hospital',
         facilityName: userData.facilityName || userData.name || 'Unknown Facility',
+        supplierId: selectedSupplier,
         drugs: drugs.map(drug => ({
           drugId: drug.drugId || '',
           drugName: drug.drugName,
@@ -154,7 +163,7 @@ export default function NewAlertPage() {
 
       // Import and use the new filtering system to distribute alerts
       const { distributeAlertToSuppliers } = await import('@/app/lib/supplierFilteringService');
-      await distributeAlertToSuppliers(alert);
+      await distributeAlertToSuppliers(alert, selectedSupplier);
 
       router.push('/hospital/alerts');
 
@@ -177,6 +186,27 @@ export default function NewAlertPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-8">
+            {/* Supplier Selection Section */}
+            <div className="border-b border-gray-200 pb-6">
+                <h2 className="text-lg font-medium text-gray-900">Select a Supplier *</h2>
+                <div className="mt-4">
+                    <select
+                        id="supplier"
+                        value={selectedSupplier}
+                        onChange={(e) => setSelectedSupplier(e.target.value)}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        required
+                    >
+                        <option value="" disabled>-- Choose a supplier --</option>
+                        {suppliers && suppliers.map(supplier => (
+                            <option key={supplier.uid} value={supplier.uid}>
+                                {supplier.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
             {/* Alert Info */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex">
@@ -186,9 +216,9 @@ export default function NewAlertPage() {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-blue-800">Smart Supplier Matching</h3>
+                  <h3 className="text-sm font-medium text-blue-800">Smart Supplier Matching Removed</h3>
                   <div className="mt-2 text-sm text-blue-700">
-                    <p>Your alert will be automatically sent to relevant suppliers based on their preferences, location, and the drugs you need. No need to select suppliers manually!</p>
+                    <p>You are now required to select a specific supplier for your stock alert.</p>
                   </div>
                 </div>
               </div>

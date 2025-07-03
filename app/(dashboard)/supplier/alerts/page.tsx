@@ -1,49 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useCollection, updateDocument } from '@/app/hooks/useFirestore';
-import { orderBy, where } from 'firebase/firestore';
-import { StockAlert, AlertDistribution } from '@/app/types';
+import { where, orderBy } from 'firebase/firestore';
+import { StockAlert } from '@/app/types';
 import Link from 'next/link';
+import { replenishInventory } from '@/app/lib/inventoryService';
 
 export default function SupplierAlerts() {
   const { userData } = useAuth();
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
-  const [relevantAlertIds, setRelevantAlertIds] = useState<string[]>([]);
 
-  // Fetch alert distributions for this supplier to get relevant alerts
-  const { data: distributions } = useCollection<AlertDistribution>(
-    'alertDistributions',
+  // Fetch alerts assigned to this supplier
+  const { data: alerts, loading: alertsLoading } = useCollection<StockAlert>(
+    'stockAlerts',
     userData ? [
       where('supplierId', '==', userData.uid),
       orderBy('createdAt', 'desc')
     ] : undefined,
     [userData?.uid]
-  );
-
-  // Extract alert IDs from distributions
-  useEffect(() => {
-    if (distributions) {
-      const alertIds = distributions.map(dist => dist.alertId);
-      setRelevantAlertIds([...new Set(alertIds)]); // Remove duplicates
-    }
-  }, [distributions]);
-
-  // Fetch alerts - either all (for admin) or filtered by relevance (for suppliers)
-  const alertsConstraints = userData?.role === 'supplier' && relevantAlertIds.length > 0
-    ? [
-        where('__name__', 'in', relevantAlertIds.slice(0, 10)), // Firestore 'in' limit is 10
-        orderBy('createdAt', 'desc')
-      ]
-    : [orderBy('createdAt', 'desc')];
-
-  const { data: alerts, loading: alertsLoading } = useCollection<StockAlert>(
-    'stockAlerts',
-    alertsConstraints,
-    [relevantAlertIds]
   );
   
   // Filter alerts based on selected filters
@@ -59,6 +37,7 @@ export default function SupplierAlerts() {
       await updateDocument<StockAlert>('stockAlerts', alertId, {
         status: 'acknowledged'
       });
+      // Note: UI will update automatically via useCollection
     } catch (error) {
       console.error('Failed to acknowledge alert:', error);
     }
@@ -66,11 +45,20 @@ export default function SupplierAlerts() {
   
   // Handle fulfilling an alert
   const handleFulfill = async (alertId: string) => {
+    const alertToFulfill = alerts?.find(a => a.id === alertId);
+    if (!alertToFulfill) return;
+
     try {
+      const resolvedAt = new Date().toISOString();
       await updateDocument<StockAlert>('stockAlerts', alertId, {
         status: 'fulfilled',
-        resolvedAt: new Date().toISOString()
+        resolvedAt: resolvedAt
       });
+
+      // Replenish inventory
+      await replenishInventory(alertToFulfill);
+
+      // Note: UI will update automatically via useCollection
     } catch (error) {
       console.error('Failed to fulfill alert:', error);
     }

@@ -45,19 +45,18 @@ export interface StockAlert {
   hospitalId: string;
   hospitalName: string;
   facilityName: string;
+  supplierId: string; // The ID of the supplier this alert is assigned to
   drugs: DrugRequirement[]; // Array of drug requirements
-  supplierId?: string; // Selected supplier
-  supplierName?: string;
-  location?: {
-    latitude?: number;
-    longitude?: number;
-    address?: string;
-  };
-  createdAt: string;
-  resolvedAt?: string;
   status: 'pending' | 'acknowledged' | 'fulfilled' | 'cancelled';
   notes?: string;
+  createdAt: string;
+  resolvedAt?: string;
   overallUrgency: UrgencyLevel; // Highest urgency from all drugs
+  location?: {
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+  };
 }
 
 // Hospital inventory item

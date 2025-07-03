@@ -6,8 +6,7 @@ import {
   updateDoc,
   deleteDoc,
   getDoc,
-  DocumentData,
-  Timestamp
+  DocumentData
 } from 'firebase/firestore';
 import { db } from './firebase';
 

@@ -1,6 +1,6 @@
 // Service to handle SMS notifications with real API integration
 import AfricasTalking from 'africastalking';
-import { SMSResponse, EnhancedSMSResponse, SMSDelivery } from '../types';
+import { EnhancedSMSResponse, SMSDelivery } from '../types';
 import { addDocument, updateDocument } from './firestore-server';
 
 // Initialize Africa's Talking with unified credentials
