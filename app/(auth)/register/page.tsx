@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { useForm } from 'react-hook-form';
 import { UserRole } from '@/app/types';
+import OTPVerification from '@/app/components/OTPVerification';
 
 interface RegisterFormValues {
   name: string;
@@ -15,7 +16,7 @@ interface RegisterFormValues {
   role: UserRole;
   facilityName?: string;
   location?: string;
-  phoneNumber?: string;
+  phoneNumber: string;
 }
 
 export default function Register() {
@@ -23,6 +24,9 @@ export default function Register() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [otpId, setOtpId] = useState<string | null>(null);
+  const [registrationData, setRegistrationData] = useState<RegisterFormValues | null>(null);
   
   const { register, handleSubmit, formState: { errors }, watch } = useForm<RegisterFormValues>();
   const password = watch('password');
@@ -32,29 +36,106 @@ export default function Register() {
       setError('Passwords do not match');
       return;
     }
-    
+
+    // Validate phone number is provided
+    if (!data.phoneNumber) {
+      setError('Phone number is required for verification');
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
-      await registerUser(
-        data.email,
-        data.password,
-        data.role,
-        data.name,
-        data.facilityName,
-        data.location,
-        data.phoneNumber
-      );
-      router.push('/');
+
+      // Store registration data for later use
+      setRegistrationData(data);
+
+      // Send OTP for phone verification
+      const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phoneNumber: data.phoneNumber,
+          userData: {
+            email: data.email,
+            name: data.name,
+            role: data.role,
+            facilityName: data.facilityName,
+            location: data.location,
+            phoneNumber: data.phoneNumber
+          }
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setOtpId(result.otpId);
+        setShowOTPVerification(true);
+      } else {
+        setError(result.message || 'Failed to send verification code');
+      }
     } catch (err: unknown) {
       console.error('Registration error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to register. Please try again.';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send verification code. Please try again.';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleOTPVerificationSuccess = async (userData: any) => {
+    if (!registrationData) {
+      setError('Registration data not found');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Complete user registration with Firebase
+      await registerUser(
+        registrationData.email,
+        registrationData.password,
+        registrationData.role,
+        registrationData.name,
+        registrationData.facilityName,
+        registrationData.location,
+        registrationData.phoneNumber
+      );
+
+      router.push('/');
+    } catch (err: unknown) {
+      console.error('Registration completion error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to complete registration. Please try again.';
+      setError(errorMessage);
+      setShowOTPVerification(false); // Go back to form
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOTPCancel = () => {
+    setShowOTPVerification(false);
+    setOtpId(null);
+    setRegistrationData(null);
+  };
   
+  // Show OTP verification if needed
+  if (showOTPVerification && otpId && registrationData) {
+    return (
+      <OTPVerification
+        otpId={otpId}
+        phoneNumber={registrationData.phoneNumber || ''}
+        onVerificationSuccess={handleOTPVerificationSuccess}
+        onCancel={handleOTPCancel}
+      />
+    );
+  }
+
   return (
     <>
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
@@ -209,15 +290,25 @@ export default function Register() {
         
         <div>
           <label htmlFor="phoneNumber" className="block text-sm font-medium leading-6 text-gray-900">
-            Phone Number (Optional)
+            Phone Number <span className="text-red-500">*</span>
           </label>
           <div className="mt-2">
             <input
               id="phoneNumber"
               type="tel"
-              {...register('phoneNumber')}
+              placeholder="e.g. +254712345678 or 0712345678"
+              {...register('phoneNumber', {
+                required: 'Phone number is required for verification',
+                pattern: {
+                  value: /^(\+254|0)[17]\d{8}$/,
+                  message: 'Please enter a valid Kenyan phone number',
+                }
+              })}
               className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 px-3"
             />
+            {errors.phoneNumber && (
+              <p className="mt-1 text-sm text-red-600">{errors.phoneNumber.message}</p>
+            )}
           </div>
         </div>
 
@@ -231,7 +322,7 @@ export default function Register() {
                 : 'bg-blue-600 hover:bg-blue-700 focus-visible:outline-blue-600 trust-primary'
             }`}
           >
-            {isLoading ? 'Creating account...' : 'Create account'}
+            {isLoading ? 'Sending verification code...' : 'Send verification code'}
           </button>
         </div>
       </form>

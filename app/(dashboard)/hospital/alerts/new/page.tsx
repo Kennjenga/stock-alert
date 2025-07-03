@@ -19,7 +19,6 @@ export default function NewAlertPage() {
     urgencyLevel: 'medium',
     unit: 'units'
   });
-  const [selectedSupplier, setSelectedSupplier] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,15 +29,6 @@ export default function NewAlertPage() {
     userData ? [where('hospitalId', '==', userData.uid)] : undefined,
     [userData?.uid]
   );
-
-  // Fetch suppliers
-  const { data: suppliers, loading: suppliersLoading } = useCollection<UserData>(
-    'users',
-    [where('role', '==', 'supplier')],
-    []
-  );
-
-  const sortedSuppliers = suppliers?.sort((a, b) => (a.name || '').localeCompare(b.name || '')) || [];
 
   const handleAddDrug = () => {
     if (newDrug.drugName && newDrug.requestedQuantity && newDrug.requestedQuantity > 0) {
@@ -87,8 +77,8 @@ export default function NewAlertPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userData || drugs.length === 0 || !selectedSupplier) {
-      setError('Please add at least one drug and select a supplier.');
+    if (!userData || drugs.length === 0) {
+      setError('Please add at least one drug.');
       return;
     }
 
@@ -96,14 +86,6 @@ export default function NewAlertPage() {
     setError(null);
 
     try {
-      const supplierDoc = await getDoc(doc(db, 'users', selectedSupplier));
-      const supplierData = supplierDoc.data() as UserData | undefined;
-
-      if (!supplierData) {
-        setError('Selected supplier not found. Please try again.');
-        return;
-      }
-
       const overallUrgency = drugs.reduce((max, drug) => {
         const urgencies: UrgencyLevel[] = ['low', 'medium', 'high', 'critical'];
         return urgencies.indexOf(drug.urgencyLevel) > urgencies.indexOf(max) ? drug.urgencyLevel : max;
@@ -113,8 +95,6 @@ export default function NewAlertPage() {
         hospitalId: userData.uid,
         hospitalName: userData.name || 'Unknown Hospital',
         facilityName: userData.facilityName || userData.name || 'Unknown Facility',
-        supplierId: selectedSupplier,
-        supplierName: supplierData.name || 'Unknown Supplier',
         drugs: drugs.map(drug => ({
           drugId: drug.drugId || '',
           drugName: drug.drugName,
@@ -129,10 +109,10 @@ export default function NewAlertPage() {
         notes: notes || '',
         createdAt: new Date().toISOString(),
         overallUrgency: overallUrgency,
-        ...(userData.location && { 
-          location: { 
-            address: userData.location 
-          } 
+        ...(userData.location && {
+          location: {
+            address: userData.location
+          }
         })
       };
 
@@ -168,8 +148,14 @@ export default function NewAlertPage() {
         return;
       }
 
-      await addDoc(collection(db, 'stockAlerts'), alertData);
-      
+      // Create the alert
+      const alertRef = await addDoc(collection(db, 'stockAlerts'), alertData);
+      const alert: StockAlert = { id: alertRef.id, ...alertData };
+
+      // Import and use the new filtering system to distribute alerts
+      const { distributeAlertToSuppliers } = await import('@/app/lib/supplierFilteringService');
+      await distributeAlertToSuppliers(alert);
+
       router.push('/hospital/alerts');
 
     } catch (err: unknown) {
@@ -191,21 +177,21 @@ export default function NewAlertPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-8">
-            {/* Supplier Selection */}
-            <div className="space-y-2">
-              <label htmlFor="supplier" className="text-sm font-medium text-gray-700">Select Supplier *</label>
-              <select
-                id="supplier"
-                value={selectedSupplier}
-                onChange={(e) => setSelectedSupplier(e.target.value)}
-                className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                required
-              >
-                <option value="" disabled>{suppliersLoading ? 'Loading suppliers...' : '-- Select a supplier --'}</option>
-                {sortedSuppliers.map(supplier => (
-                  <option key={supplier.uid} value={supplier.uid}>{supplier.name} - {supplier.facilityName}</option>
-                ))}
-              </select>
+            {/* Alert Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Smart Supplier Matching</h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <p>Your alert will be automatically sent to relevant suppliers based on their preferences, location, and the drugs you need. No need to select suppliers manually!</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Drug Selection Section */}

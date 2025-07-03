@@ -1,39 +1,97 @@
-// Service to handle airtime rewards
+// Service to handle airtime rewards using Africa's Talking
+import AfricasTalking from 'africastalking';
 import { addDocument } from '../hooks/useFirestore';
 import { AirtimeReward } from '../types';
 
-// This function would use a real airtime API in production
+// Initialize Africa's Talking with unified credentials
+const credentials = {
+  apiKey: process.env.AFRICA_TALKING_API_KEY || '',
+  username: process.env.AFRICA_TALKING_USERNAME || 'pedi',
+};
+
+const africastalking = AfricasTalking(credentials);
+const airtime = africastalking.AIRTIME;
+
+// Enhanced function to send airtime rewards using Africa's Talking API
 export async function rewardUserWithAirtime(
   phoneNumber: string,
   userId: string,
   alertId: string,
-  amount: number = 50 // Default amount in local currency
+  amount: number = 50 // Default amount in KES
 ): Promise<boolean> {
   try {
-    // In a real application, you would integrate with an Airtime provider API
-    // For example, Africa's Talking, Reloadly, etc.
-    console.log(`Rewarding ${phoneNumber} with ${amount} airtime for alert ${alertId}`);
-    
-    // Check if API key is configured
-    const apiKey = process.env.NEXT_PUBLIC_AIRTIME_API_KEY;
-    if (!apiKey) {
-      console.warn('Airtime API key not configured');
+    // Validate environment variables
+    if (!process.env.AFRICA_TALKING_API_KEY || !process.env.AFRICA_TALKING_USERNAME) {
+      console.warn('Africa\'s Talking API credentials not configured');
+      // Still record the reward attempt
+      await addDocument<Omit<AirtimeReward, 'id'>>('airtimeRewards', {
+        userId,
+        phoneNumber,
+        amount,
+        status: 'failed',
+        alertId,
+        failureReason: 'API credentials not configured',
+        createdAt: new Date().toISOString()
+      });
+      return false;
     }
-    
-    // Record the reward in the database
-    await addDocument<Omit<AirtimeReward, 'id'>>('airtimeRewards', {
-      userId,
-      phoneNumber,
-      amount,
-      status: 'sent', // In a real app, this would initially be 'pending'
-      alertId,
-      createdAt: new Date().toISOString()
-    });
-    
-    // In a real application, you would await the API response
-    // and update the status accordingly
-    
-    return true;
+
+    console.log(`Sending ${amount} KES airtime to ${phoneNumber} for alert ${alertId}`);
+
+    try {
+      // Send airtime using Africa's Talking API
+      const airtimeResponse = await airtime.send({
+        recipients: [{
+          phoneNumber: phoneNumber,
+          currencyCode: 'KES',
+          amount: amount
+        }]
+      });
+
+      if (airtimeResponse.responses && airtimeResponse.responses.length > 0) {
+        const response = airtimeResponse.responses[0];
+
+        // Record the reward in the database
+        await addDocument<Omit<AirtimeReward, 'id'>>('airtimeRewards', {
+          userId,
+          phoneNumber,
+          amount,
+          status: response.status === 'Success' ? 'sent' : 'failed',
+          alertId,
+          transactionId: response.requestId,
+          failureReason: response.status !== 'Success' ? response.errorMessage : undefined,
+          createdAt: new Date().toISOString()
+        });
+
+        return response.status === 'Success';
+      } else {
+        // Record failed attempt
+        await addDocument<Omit<AirtimeReward, 'id'>>('airtimeRewards', {
+          userId,
+          phoneNumber,
+          amount,
+          status: 'failed',
+          alertId,
+          failureReason: 'No response from airtime API',
+          createdAt: new Date().toISOString()
+        });
+        return false;
+      }
+    } catch (apiError) {
+      console.error('Airtime API error:', apiError);
+
+      // Record failed attempt
+      await addDocument<Omit<AirtimeReward, 'id'>>('airtimeRewards', {
+        userId,
+        phoneNumber,
+        amount,
+        status: 'failed',
+        alertId,
+        failureReason: apiError instanceof Error ? apiError.message : 'Unknown API error',
+        createdAt: new Date().toISOString()
+      });
+      return false;
+    }
   } catch (error) {
     console.error('Failed to send airtime reward:', error);
     

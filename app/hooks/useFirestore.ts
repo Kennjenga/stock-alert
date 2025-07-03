@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  collection, 
-  query, 
+import {
+  collection,
+  query,
   doc,
   addDoc,
   updateDoc,
   deleteDoc,
+  getDoc,
   DocumentData,
   QueryConstraint,
   onSnapshot
@@ -135,9 +136,24 @@ export const updateDocument = async <T extends DocumentData>(
 };
 
 export const deleteDocument = async (
-  collectionName: string, 
+  collectionName: string,
   documentId: string
 ): Promise<void> => {
   const docRef = doc(db, collectionName, documentId);
   await deleteDoc(docRef);
+};
+
+// Get a single document by ID (one-time fetch)
+export const getDocumentById = async <T extends DocumentData>(
+  collectionName: string,
+  documentId: string
+): Promise<T | null> => {
+  const docRef = doc(db, collectionName, documentId);
+  const docSnap = await getDoc(docRef);
+
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() } as T;
+  } else {
+    return null;
+  }
 };

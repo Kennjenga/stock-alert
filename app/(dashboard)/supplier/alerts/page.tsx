@@ -1,30 +1,49 @@
 'use client';
 
-import { useState } from 'react';
-// import { useAuth } from '@/app/context/AuthContext'; // TODO: Use when implementing supplier filtering
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/app/context/AuthContext';
 import { useCollection, updateDocument } from '@/app/hooks/useFirestore';
-import { orderBy } from 'firebase/firestore';
-import { StockAlert } from '@/app/types';
+import { orderBy, where } from 'firebase/firestore';
+import { StockAlert, AlertDistribution } from '@/app/types';
 import Link from 'next/link';
 
 export default function SupplierAlerts() {
-  // TODO: Use userData to filter alerts by supplier when the feature is implemented
-  // const { userData } = useAuth();
-  
+  const { userData } = useAuth();
+
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
-  
-  // TODO: Filter alerts by supplier when the feature is implemented
-  // For now, showing all alerts - this should be filtered by userData.uid in the future
-  
-  // Fetch all alerts as a supplier
-  const alertsConstraints = [
-    orderBy('createdAt', 'desc')
-  ];
-  
+  const [relevantAlertIds, setRelevantAlertIds] = useState<string[]>([]);
+
+  // Fetch alert distributions for this supplier to get relevant alerts
+  const { data: distributions } = useCollection<AlertDistribution>(
+    'alertDistributions',
+    userData ? [
+      where('supplierId', '==', userData.uid),
+      orderBy('createdAt', 'desc')
+    ] : undefined,
+    [userData?.uid]
+  );
+
+  // Extract alert IDs from distributions
+  useEffect(() => {
+    if (distributions) {
+      const alertIds = distributions.map(dist => dist.alertId);
+      setRelevantAlertIds([...new Set(alertIds)]); // Remove duplicates
+    }
+  }, [distributions]);
+
+  // Fetch alerts - either all (for admin) or filtered by relevance (for suppliers)
+  const alertsConstraints = userData?.role === 'supplier' && relevantAlertIds.length > 0
+    ? [
+        where('__name__', 'in', relevantAlertIds.slice(0, 10)), // Firestore 'in' limit is 10
+        orderBy('createdAt', 'desc')
+      ]
+    : [orderBy('createdAt', 'desc')];
+
   const { data: alerts, loading: alertsLoading } = useCollection<StockAlert>(
-    'stockAlerts', 
-    alertsConstraints
+    'stockAlerts',
+    alertsConstraints,
+    [relevantAlertIds]
   );
   
   // Filter alerts based on selected filters
