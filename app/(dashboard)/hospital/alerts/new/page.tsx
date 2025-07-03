@@ -43,20 +43,23 @@ export default function NewAlertPage() {
   const handleAddDrug = () => {
     if (newDrug.drugName && newDrug.requestedQuantity && newDrug.requestedQuantity > 0) {
       const drugToAdd: DrugRequirement = {
+        drugId: newDrug.drugId || '',
         drugName: newDrug.drugName,
+        category: newDrug.category || 'general',
         requestedQuantity: newDrug.requestedQuantity,
         urgencyLevel: newDrug.urgencyLevel || 'medium',
         unit: newDrug.unit || 'units',
-        drugId: newDrug.drugId,
-        category: newDrug.category,
-        notes: newDrug.notes
+        notes: newDrug.notes || ''
       };
       setDrugs([...drugs, drugToAdd]);
       setNewDrug({ 
         drugName: '', 
         requestedQuantity: 1, 
         urgencyLevel: 'medium',
-        unit: 'units'
+        unit: 'units',
+        category: 'general',
+        drugId: '',
+        notes: ''
       });
     } else {
       setError('Please provide a valid drug name and quantity.');
@@ -94,7 +97,12 @@ export default function NewAlertPage() {
 
     try {
       const supplierDoc = await getDoc(doc(db, 'users', selectedSupplier));
-      const supplierData = supplierDoc.data() as UserData;
+      const supplierData = supplierDoc.data() as UserData | undefined;
+
+      if (!supplierData) {
+        setError('Selected supplier not found. Please try again.');
+        return;
+      }
 
       const overallUrgency = drugs.reduce((max, drug) => {
         const urgencies: UrgencyLevel[] = ['low', 'medium', 'high', 'critical'];
@@ -103,16 +111,62 @@ export default function NewAlertPage() {
 
       const alertData: Omit<StockAlert, 'id'> = {
         hospitalId: userData.uid,
-        hospitalName: userData.name || '',
-        facilityName: userData.facilityName || '',
+        hospitalName: userData.name || 'Unknown Hospital',
+        facilityName: userData.facilityName || userData.name || 'Unknown Facility',
         supplierId: selectedSupplier,
-        supplierName: supplierData.name || '',
-        drugs: drugs,
+        supplierName: supplierData.name || 'Unknown Supplier',
+        drugs: drugs.map(drug => ({
+          drugId: drug.drugId || '',
+          drugName: drug.drugName,
+          category: drug.category || 'general',
+          requestedQuantity: drug.requestedQuantity,
+          currentQuantity: drug.currentQuantity || 0,
+          urgencyLevel: drug.urgencyLevel,
+          unit: drug.unit,
+          notes: drug.notes || ''
+        })),
         status: 'pending',
-        notes: notes,
+        notes: notes || '',
         createdAt: new Date().toISOString(),
-        overallUrgency: overallUrgency
+        overallUrgency: overallUrgency,
+        ...(userData.location && { 
+          location: { 
+            address: userData.location 
+          } 
+        })
       };
+
+      // Debug: Log the alert data to help identify undefined fields
+      console.log('Alert data being saved:', JSON.stringify(alertData, null, 2));
+      
+      // Check for undefined values recursively
+      const hasUndefined = (obj: any, path = ''): string[] => {
+        const undefinedFields: string[] = [];
+        for (const [key, value] of Object.entries(obj)) {
+          const currentPath = path ? `${path}.${key}` : key;
+          if (value === undefined) {
+            undefinedFields.push(currentPath);
+          } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+            undefinedFields.push(...hasUndefined(value, currentPath));
+          } else if (Array.isArray(value)) {
+            value.forEach((item, index) => {
+              if (item === undefined) {
+                undefinedFields.push(`${currentPath}[${index}]`);
+              } else if (item && typeof item === 'object') {
+                undefinedFields.push(...hasUndefined(item, `${currentPath}[${index}]`));
+              }
+            });
+          }
+        }
+        return undefinedFields;
+      };
+
+      const undefinedFields = hasUndefined(alertData);
+      if (undefinedFields.length > 0) {
+        console.error('Found undefined fields:', undefinedFields);
+        setError(`Data validation failed. Please check all required fields.`);
+        return;
+      }
 
       await addDoc(collection(db, 'stockAlerts'), alertData);
       

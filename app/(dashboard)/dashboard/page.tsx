@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useCollection } from '@/app/hooks/useFirestore';
-import { where, orderBy, limit } from 'firebase/firestore';
+import { where } from 'firebase/firestore';
 import { StockAlert, InventoryItem } from '@/app/types';
 import Link from 'next/link';
 
@@ -35,53 +35,38 @@ export default function Dashboard() {
   const { userData } = useAuth();
   const isHospital = userData?.role === 'hospital';
   
-  // Fetch recent alerts with proper constraints
-  const alertsConstraints = [
-    ...(isHospital ? [where('hospitalId', '==', userData?.uid || '')] : [where('supplierId', '==', userData?.uid || '')]),
-    orderBy('createdAt', 'desc'),
-    limit(5)
-  ];
+  // Fetch recent alerts with simple constraints to avoid composite index requirements
+  const alertsConstraints = isHospital 
+    ? [where('hospitalId', '==', userData?.uid || '')] 
+    : [where('supplierId', '==', userData?.uid || '')];
   
-  const { data: alerts, loading: alertsLoading } = useCollection<StockAlert>(
+  const { data: allAlerts, loading: alertsLoading } = useCollection<StockAlert>(
     'stockAlerts', 
     alertsConstraints,
     [userData?.uid, isHospital]
   );
 
-  // Fetch inventory for hospitals
-  const { data: inventory, loading: inventoryLoading } = useCollection<InventoryItem>(
+  // Sort and limit alerts in memory instead of using Firestore orderBy
+  const alerts = useMemo(() => {
+    return allAlerts
+      ?.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      ?.slice(0, 5);
+  }, [allAlerts]);
+
+  // Fetch inventory for hospitals with simple query
+  const { data: allInventory, loading: inventoryLoading } = useCollection<InventoryItem>(
     'inventory',
-    isHospital ? [
-      where('hospitalId', '==', userData?.uid || ''),
-      orderBy('drugName', 'asc')
-    ] : [],
+    isHospital ? [where('hospitalId', '==', userData?.uid || '')] : [],
     [userData?.uid, isHospital]
   );
+
+  // Sort inventory in memory
+  const inventory = useMemo(() => {
+    return allInventory?.sort((a, b) => a.drugName.localeCompare(b.drugName));
+  }, [allInventory]);
   
-  // For data visualization
-  const [chartData, setChartData] = useState<{
-    labels: string[];
-    datasets: Array<{
-      label: string;
-      data: number[];
-      backgroundColor: string[];
-      borderColor: string[];
-      borderWidth: number;
-    }>;
-  } | null>(null);
-  const [doughnutData, setDoughnutData] = useState<{
-    labels: string[];
-    datasets: Array<{
-      label: string;
-      data: number[];
-      backgroundColor: string[];
-      borderColor: string[];
-      borderWidth: number;
-    }>;
-  } | null>(null);
-  
-  // Calculate KPIs
-  const kpis = {
+  // Calculate KPIs using useMemo to prevent infinite re-renders
+  const kpis = useMemo(() => ({
     totalAlerts: alerts?.length || 0,
     pendingAlerts: alerts?.filter(a => a.status === 'pending').length || 0,
     acknowledgedAlerts: alerts?.filter(a => a.status === 'acknowledged').length || 0,
@@ -96,17 +81,17 @@ export default function Dashboard() {
     totalInventoryValue: isHospital ? inventory?.reduce((sum, item) => 
       sum + (item.currentQuantity * (item.costPerUnit || 0)), 0
     ) || 0 : 0
-  };
-  
-  useEffect(() => {
+  }), [alerts, inventory, isHospital]);
+
+  // Calculate chart data using useMemo to prevent infinite re-renders
+  const chartData = useMemo(() => {
     if (alerts && alerts.length > 0) {
-      // Prepare data for bar chart - alerts by urgency level
       const urgencyLevels = ['low', 'medium', 'high', 'critical'];
       const urgencyCounts = urgencyLevels.map(level => 
         alerts.filter(alert => alert.overallUrgency === level).length
       );
       
-      setChartData({
+      return {
         labels: urgencyLevels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
         datasets: [
           {
@@ -127,15 +112,19 @@ export default function Dashboard() {
             borderWidth: 2,
           },
         ],
-      });
-      
-      // Prepare data for doughnut chart - alerts by status
+      };
+    }
+    return null;
+  }, [alerts]);
+
+  const doughnutData = useMemo(() => {
+    if (alerts && alerts.length > 0) {
       const statusList = ['pending', 'acknowledged', 'fulfilled', 'cancelled'];
       const statusCounts = statusList.map(status => 
         alerts.filter(alert => alert.status === status).length
       );
       
-      setDoughnutData({
+      return {
         labels: statusList.map(s => s.charAt(0).toUpperCase() + s.slice(1)),
         datasets: [
           {
@@ -156,11 +145,9 @@ export default function Dashboard() {
             borderWidth: 2,
           },
         ],
-      });
-    } else {
-      setChartData(null);
-      setDoughnutData(null);
+      };
     }
+    return null;
   }, [alerts]);
   
   // Options for the bar chart
@@ -321,7 +308,7 @@ export default function Dashboard() {
                   </dt>
                   <dd className="text-3xl font-semibold text-gray-800">
                     {alertsLoading || inventoryLoading ? '...' : isHospital 
-                      ? `$${kpis.totalInventoryValue.toLocaleString()}` 
+                      ? `KSh ${kpis.totalInventoryValue.toLocaleString()}` 
                       : kpis.fulfilledAlerts}
                   </dd>
                 </dl>
