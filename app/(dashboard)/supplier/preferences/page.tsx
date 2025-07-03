@@ -296,7 +296,7 @@ export default function SupplierPreferencesPage() {
                 placeholder="e.g., 50"
               />
               <p className="mt-1 text-xs text-gray-500">
-                Maximum distance you're willing to deliver (leave empty for no limit)
+                Maximum distance you&apos;re willing to deliver (leave empty for no limit)
               </p>
             </div>
             <div>
@@ -312,7 +312,7 @@ export default function SupplierPreferencesPage() {
                 placeholder="e.g., 1000"
               />
               <p className="mt-1 text-xs text-gray-500">
-                Minimum order value you're interested in (leave empty for no minimum)
+                Minimum order value you&apos;re interested in (leave empty for no minimum)
               </p>
             </div>
           </div>

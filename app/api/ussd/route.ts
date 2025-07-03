@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     ]) as { sessionId: string; serviceCode: string; phoneNumber: string; text: string; networkCode: string | null; contentType: string };
 
     // Enhanced provider detection using the utility function
-    const provider = detectProvider(networkCode);
+    const provider = detectProvider(networkCode || undefined);
 
     // Format phone number using the utility function
     const cleanPhoneNumber = formatPhoneNumber(phoneNumber);
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       userInput,
       serviceCode,
       provider,
-      networkCode
+      networkCode || undefined
     );
 
     // Enhanced response formatting based on content type

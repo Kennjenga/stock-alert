@@ -4,9 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { useCollection } from '@/app/hooks/useFirestore';
-import { collection, addDoc, doc, getDoc, where } from 'firebase/firestore';
+import { collection, addDoc, where } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
-import { DrugRequirement, InventoryItem, UserData, StockAlert, UrgencyLevel } from '@/app/types';
+import { DrugRequirement, InventoryItem, StockAlert, UrgencyLevel } from '@/app/types';
 
 export default function NewAlertPage() {
   const { userData } = useAuth();
@@ -325,7 +325,7 @@ export default function NewAlertPage() {
               </button>
               <button
                 type="submit"
-                disabled={isLoading || drugs.length === 0 || !selectedSupplier}
+                disabled={isLoading || drugs.length === 0}
                 className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Submitting...' : 'Submit Alert'}

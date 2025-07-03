@@ -9,8 +9,7 @@ import {
   getDocs,
   query,
   where,
-  DocumentData,
-  Timestamp
+  DocumentData
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -98,7 +97,7 @@ export const getDocumentById = async <T extends DocumentData>(
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
-      const data = { id: docSnap.id, ...docSnap.data() } as T;
+      const data = { id: docSnap.id, ...docSnap.data() } as unknown as T;
       console.log(`Document fetched from ${collectionName} with ID:`, documentId);
       return data;
     } else {
@@ -167,7 +166,7 @@ export const setDocument = async <T extends DocumentData>(
 export const queryDocuments = async <T extends DocumentData>(
   collectionName: string,
   field: string,
-  value: any
+  value: unknown
 ): Promise<T[]> => {
   try {
     const q = query(collection(db, collectionName), where(field, '==', value));
@@ -175,7 +174,7 @@ export const queryDocuments = async <T extends DocumentData>(
     const documents: T[] = [];
 
     querySnapshot.forEach((doc) => {
-      documents.push({ id: doc.id, ...doc.data() } as T);
+      documents.push({ id: doc.id, ...doc.data() } as unknown as T);
     });
 
     console.log(`Found ${documents.length} documents in ${collectionName} where ${field} == ${value}`);
@@ -199,7 +198,7 @@ export const getAllDocuments = async <T extends DocumentData>(
     const documents: T[] = [];
 
     querySnapshot.forEach((doc) => {
-      documents.push({ id: doc.id, ...doc.data() } as T);
+      documents.push({ id: doc.id, ...doc.data() } as unknown as T);
     });
 
     console.log(`Found ${documents.length} documents in ${collectionName}`);
@@ -221,7 +220,7 @@ export const getAllDocuments = async <T extends DocumentData>(
 export const updateDocumentByQuery = async <T extends DocumentData>(
   collectionName: string,
   field: string,
-  value: any,
+  value: unknown,
   updates: Partial<T>
 ): Promise<boolean> => {
   try {

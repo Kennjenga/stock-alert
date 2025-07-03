@@ -1,6 +1,6 @@
 // Enhanced USSD Service for Africa's Talking API integration
 // Follows Africa's Talking best practices for session management, error handling, and response formatting
-import { addDocument, updateDocument, queryDocuments, updateDocumentByQuery } from './firestore-server';
+import { addDocument, queryDocuments, updateDocumentByQuery } from './firestore-server';
 import { StockAlert, UrgencyLevel, USSDSession, UserData } from '../types';
 import { distributeAlertToSuppliers } from './supplierFilteringService';
 import { rewardUserWithAirtime } from './airtimeService';
@@ -24,9 +24,9 @@ export const USSD_CONFIG = {
 export function detectProvider(networkCode?: string): 'safaricom' | 'airtel' | 'orange' {
   if (!networkCode) return 'safaricom'; // Default fallback
 
-  if (USSD_CONFIG.NETWORK_CODES.SAFARICOM.includes(networkCode)) return 'safaricom';
-  if (USSD_CONFIG.NETWORK_CODES.AIRTEL.includes(networkCode)) return 'airtel';
-  if (USSD_CONFIG.NETWORK_CODES.ORANGE.includes(networkCode)) return 'orange';
+  if (USSD_CONFIG.NETWORK_CODES.SAFARICOM.includes(networkCode as '63902' | '63903')) return 'safaricom';
+  if (USSD_CONFIG.NETWORK_CODES.AIRTEL.includes(networkCode as '63907')) return 'airtel';
+  if (USSD_CONFIG.NETWORK_CODES.ORANGE.includes(networkCode as '63905')) return 'orange';
 
   return 'safaricom'; // Default fallback
 }
@@ -138,7 +138,7 @@ export async function createUSSDSession(
     phoneNumber: formattedPhone,
     serviceCode,
     currentLevel: 1,
-    sessionData: {},
+    sessionData: {} as Record<string, unknown>,
     status: 'active',
     provider,
     networkCode,
@@ -276,11 +276,16 @@ export async function handleUssdSession(
     const result = await processUSSDLevel(session, userInput, user, provider);
 
     // Update session with new data and activity timestamp
-    await updateUSSDSession(sessionId, {
+    const updateData: Partial<USSDSession> = {
       currentLevel: result.nextLevel || session.currentLevel,
-      sessionData: result.sessionData || session.sessionData,
       lastActivityAt: new Date().toISOString()
-    });
+    };
+
+    if (result.sessionData || session.sessionData) {
+      updateData.sessionData = (result.sessionData || session.sessionData) as Record<string, unknown>;
+    }
+
+    await updateUSSDSession(sessionId, updateData);
 
     // Ensure response is properly formatted and within limits
     const formattedResponse = truncateResponse(result.response);
@@ -308,9 +313,9 @@ async function processUSSDLevel(
   userInput: string,
   user: UserData | null,
   provider: 'safaricom' | 'airtel' | 'orange'
-): Promise<{ response: string; endSession: boolean; nextLevel?: number; sessionData?: any }> {
+): Promise<{ response: string; endSession: boolean; nextLevel?: number; sessionData?: unknown }> {
   const currentLevel = session.currentLevel;
-  const sessionData = session.sessionData;
+  const sessionData = session.sessionData as Record<string, unknown>;
 
   // Sanitize user input
   const sanitizedInput = userInput?.trim() || '';
@@ -423,7 +428,7 @@ async function processUSSDLevel(
 
     case 3:
       // Drug category selection
-      const categories = sessionData.categories || [];
+      const categories = (sessionData.categories as string[]) || [];
       const categoryIndex = parseInt(userInput) - 1;
 
       if (userInput === '0') {
@@ -459,11 +464,11 @@ async function processUSSDLevel(
 
     case 4:
       // Drug selection
-      const categoryDrugs = sessionData.categoryDrugs || [];
+      const categoryDrugs = (sessionData.categoryDrugs as unknown[]) || [];
 
       if (userInput === '0') {
-        const categories = sessionData.categories || [];
-        const categoryList = categories.map((cat, index) => `${index + 1}. ${cat}`).join('\n');
+        const categories = (sessionData.categories as string[]) || [];
+        const categoryList: string = categories.map((cat: string, index: number): string => `${index + 1}. ${cat}`).join('\n');
         return {
           response: `Select drug category:\n${categoryList}\n0. Back`,
           endSession: false,
@@ -473,7 +478,7 @@ async function processUSSDLevel(
 
       const drugIndex = parseInt(userInput) - 1;
       if (drugIndex >= 0 && drugIndex < categoryDrugs.length) {
-        const selectedDrug = categoryDrugs[drugIndex];
+        const selectedDrug = categoryDrugs[drugIndex] as { id: string; name: string; category: string };
         return {
           response: `Enter current quantity for ${selectedDrug.name} (number only):`,
           endSession: false,
@@ -522,16 +527,16 @@ async function processUSSDLevel(
           session.phoneNumber,
           user!.uid,
           user!.facilityName || user!.name || 'Unknown Hospital',
-          sessionData.selectedDrug.id,
-          sessionData.selectedDrug.name,
-          sessionData.quantity,
+          (sessionData.selectedDrug as { id: string; name: string }).id,
+          (sessionData.selectedDrug as { id: string; name: string }).name,
+          parseInt(sessionData.quantity as string),
           selectedUrgency,
           { address: user!.location }
         );
 
         if (success) {
           return {
-            response: `✅ Alert submitted successfully!\n\nDrug: ${sessionData.selectedDrug.name}\nQuantity: ${sessionData.quantity}\nUrgency: ${selectedUrgency.toUpperCase()}\n\nSuppliers have been notified. You'll receive airtime as reward. Thank you!`,
+            response: `✅ Alert submitted successfully!\n\nDrug: ${(sessionData.selectedDrug as { name: string }).name}\nQuantity: ${sessionData.quantity}\nUrgency: ${selectedUrgency.toUpperCase()}\n\nSuppliers have been notified. You'll receive airtime as reward. Thank you!`,
             endSession: true
           };
         } else {
@@ -593,8 +598,8 @@ async function processUSSDLevel(
 
       // Create user account (simplified)
       const newUserData = {
-        name: sessionData.name,
-        facilityName: sessionData.facilityName,
+        name: sessionData.name as string,
+        facilityName: sessionData.facilityName as string,
         location: userInput.trim(),
         phoneNumber: session.phoneNumber,
         role: 'hospital' as const,
@@ -604,10 +609,10 @@ async function processUSSDLevel(
       try {
         await addDocument('users', newUserData);
         return {
-          response: `✅ Registration successful!\nWelcome ${sessionData.name}!\n\nYou can now report stock alerts. Dial *789*12345# anytime.`,
+          response: `✅ Registration successful!\nWelcome ${sessionData.name as string}!\n\nYou can now report stock alerts. Dial *789*12345# anytime.`,
           endSession: true
         };
-      } catch (error) {
+      } catch {
         return {
           response: `❌ Registration failed. Please try again later.`,
           endSession: true
@@ -653,7 +658,7 @@ async function getUserAlerts(userId: string): Promise<{ response: string; endSes
       response,
       endSession: true
     };
-  } catch (error) {
+  } catch {
     return {
       response: `Unable to fetch alerts. Please try again later.`,
       endSession: true

@@ -3,8 +3,7 @@ import {
   StockAlert,
   SupplierPreferences,
   UserData,
-  AlertDistribution,
-  UrgencyLevel
+  AlertDistribution
 } from '../types';
 import { addDocument, queryDocuments, getAllDocuments } from './firestore-server';
 import { sendSMS, formatStockAlertSMS, formatMultipleDrugsAlertSMS } from './smsService';
@@ -243,9 +242,9 @@ async function sendSMSAlert(supplier: UserData, alert: StockAlert): Promise<void
       supplierName: supplier.name || supplier.facilityName || 'Unknown',
       notificationMethod: 'sms',
       status: smsResponse.success ? 'sent' : 'failed',
-      sentAt: smsResponse.success ? new Date().toISOString() : null,
-      failureReason: smsResponse.success ? null : smsResponse.error,
-      messageId: smsResponse.messageId || null,
+      sentAt: smsResponse.success ? new Date().toISOString() : undefined,
+      failureReason: smsResponse.success ? undefined : smsResponse.error,
+      messageId: smsResponse.messageId || undefined,
       createdAt: new Date().toISOString()
     };
 

@@ -207,7 +207,7 @@ export interface USSDSession {
   phoneNumber: string;
   serviceCode: string;
   currentLevel: number;
-  sessionData: Record<string, any>; // Store user inputs and state
+  sessionData: Record<string, unknown>; // Store user inputs and state
   status: 'active' | 'completed' | 'expired' | 'cancelled';
   provider: 'safaricom' | 'airtel' | 'orange';
   networkCode?: string; // Africa's Talking network code for provider identification

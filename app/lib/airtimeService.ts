@@ -44,7 +44,7 @@ export async function rewardUserWithAirtime(
         recipients: [{
           phoneNumber: phoneNumber,
           currencyCode: 'KES',
-          amount: amount
+          amount: amount.toString()
         }]
       });
 

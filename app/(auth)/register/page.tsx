@@ -86,7 +86,7 @@ export default function Register() {
     }
   };
 
-  const handleOTPVerificationSuccess = async (userData: any) => {
+  const handleOTPVerificationSuccess = async () => {
     if (!registrationData) {
       setError('Registration data not found');
       return;

@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 interface OTPVerificationProps {
   otpId: string;
   phoneNumber: string;
-  onVerificationSuccess: (userData: any) => void;
+  onVerificationSuccess: () => void;
   onCancel: () => void;
 }
 
@@ -70,7 +70,7 @@ export default function OTPVerification({
       const result = await response.json();
 
       if (result.success) {
-        onVerificationSuccess(result.userData);
+        onVerificationSuccess();
       } else {
         setError(result.message);
         if (result.attemptsRemaining !== undefined) {
@@ -125,7 +125,7 @@ export default function OTPVerification({
             Verify Your Phone Number
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            We've sent a verification code to{' '}
+            We&apos;ve sent a verification code to{' '}
             <span className="font-medium text-blue-600">{phoneNumber}</span>
           </p>
         </div>
