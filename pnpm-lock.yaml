@@ -51,6 +51,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.1.11
+      '@types/africastalking':
+        specifier: ^0.6.2
+        version: 0.6.2
       '@types/node':
         specifier: ^20
         version: 20.19.4
@@ -815,6 +818,9 @@ packages:
 
   '@tybys/wasm-util@0.9.0':
     resolution: {integrity: sha512-6+7nlbMVX/PVDCwaIQ8nTOPveOcFLSt8GcXdx8hD0bt39uWxYT88uXzqTd4fTvqta7oeUJqudepapKNt2DYJFw==}
+
+  '@types/africastalking@0.6.2':
+    resolution: {integrity: sha512-9SUZyQEQVUw8ww7Wc24r+pi9OvBHOzWU+/yEdQV0opfaYN9sNb6gVK1ugMxIlBlGGEnTzlCx8roqjL9I3Bbxvw==}
 
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
@@ -3254,6 +3260,8 @@ snapshots:
     dependencies:
       tslib: 2.8.1
     optional: true
+
+  '@types/africastalking@0.6.2': {}
 
   '@types/estree@1.0.8': {}
 
