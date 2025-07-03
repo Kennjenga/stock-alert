@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { UserData } from '@/app/types';
 
 interface OTPVerificationProps {
   otpId: string;
   phoneNumber: string;
-  onVerificationSuccess: (userData: any) => void;
+  onVerificationSuccess: (userData: UserData) => void;
   onCancel: () => void;
 }
 
@@ -125,7 +126,7 @@ export default function OTPVerification({
             Verify Your Phone Number
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            We've sent a verification code to{' '}
+            We&apos;ve sent a verification code to{' '}
             <span className="font-medium text-blue-600">{phoneNumber}</span>
           </p>
         </div>

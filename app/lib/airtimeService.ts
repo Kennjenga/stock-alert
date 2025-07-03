@@ -3,6 +3,15 @@ import AfricasTalking from 'africastalking';
 import { addDocument } from '../hooks/useFirestore';
 import { AirtimeReward } from '../types';
 
+// Africa's Talking response interface
+interface AirtimeResponse {
+  responses?: Array<{
+    status: string;
+    requestId: string;
+    errorMessage?: string;
+  }>;
+}
+
 // Initialize Africa's Talking with unified credentials
 const credentials = {
   apiKey: process.env.AFRICA_TALKING_API_KEY || '',
@@ -10,7 +19,7 @@ const credentials = {
 };
 
 const africastalking = AfricasTalking(credentials);
-const airtime = africastalking.AIRTIME;
+// const airtime = africastalking.AIRTIME; // Will be used dynamically
 
 // Enhanced function to send airtime rewards using Africa's Talking API
 export async function rewardUserWithAirtime(
@@ -40,7 +49,7 @@ export async function rewardUserWithAirtime(
 
     try {
       // Send airtime using Africa's Talking API
-      const airtimeResponse = await airtime.send({
+      const airtimeResponse = await (africastalking as unknown as { AIRTIME: { send: (data: unknown) => Promise<AirtimeResponse> } }).AIRTIME.send({
         recipients: [{
           phoneNumber: phoneNumber,
           currencyCode: 'KES',

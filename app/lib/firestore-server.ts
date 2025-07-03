@@ -94,7 +94,7 @@ export const getDocumentById = async <T extends DocumentData>(
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
-      const data = { id: docSnap.id, ...docSnap.data() } as T;
+      const data = { id: docSnap.id, ...docSnap.data() } as unknown as T;
       console.log(`Document fetched from ${collectionName} with ID:`, documentId);
       return data;
     } else {

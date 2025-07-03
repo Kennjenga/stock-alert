@@ -152,7 +152,7 @@ export const getDocumentById = async <T extends DocumentData>(
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as T;
+    return { id: docSnap.id, ...docSnap.data() } as unknown as T;
   } else {
     return null;
   }

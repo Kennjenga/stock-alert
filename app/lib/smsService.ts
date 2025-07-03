@@ -3,6 +3,20 @@ import AfricasTalking from 'africastalking';
 import { EnhancedSMSResponse, SMSDelivery } from '../types';
 import { addDocument, updateDocument } from './firestore-server';
 
+// Africa's Talking SMS response interface
+interface AfricasTalkingSMSResponse {
+  SMSMessageData: {
+    Message: string;
+    Recipients: Array<{
+      statusCode: number;
+      number: string;
+      status: string;
+      cost: string;
+      messageId: string;
+    }>;
+  };
+}
+
 // Initialize Africa's Talking with unified credentials
 const credentials = {
   apiKey: process.env.AFRICA_TALKING_API_KEY || '',
@@ -47,7 +61,7 @@ export async function sendSMS(
 
     console.log(`Sending SMS to ${formattedPhone}: ${message}`);
 
-    const response = await sms.send(options);
+    const response = await sms.send(options) as unknown as AfricasTalkingSMSResponse;
 
     if (response.SMSMessageData.Recipients.length > 0) {
       const recipient = response.SMSMessageData.Recipients[0];

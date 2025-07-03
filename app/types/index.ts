@@ -46,6 +46,7 @@ export interface StockAlert {
   hospitalName: string;
   facilityName: string;
   supplierId: string; // The ID of the supplier this alert is assigned to
+  supplierName?: string; // The name of the supplier this alert is assigned to
   drugs: DrugRequirement[]; // Array of drug requirements
   status: 'pending' | 'acknowledged' | 'fulfilled' | 'cancelled';
   notes?: string;
@@ -206,7 +207,7 @@ export interface USSDSession {
   phoneNumber: string;
   serviceCode: string;
   currentLevel: number;
-  sessionData: Record<string, any>; // Store user inputs and state
+  sessionData: Record<string, unknown>; // Store user inputs and state
   status: 'active' | 'completed' | 'expired' | 'cancelled';
   provider: 'safaricom' | 'airtel' | 'orange';
   startedAt: string;

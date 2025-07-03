@@ -1,5 +1,5 @@
 // Service to handle USSD integrations with real telecom provider support
-import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { addDocument } from '../hooks/useFirestore';
 import { StockAlert, UrgencyLevel, USSDSession, UserData } from '../types';
@@ -36,13 +36,14 @@ export async function processUssdAlert(
       location,
       createdAt: new Date().toISOString(),
       status: 'pending',
+      supplierId: '', // Set to empty string or appropriate value if available
     };
 
     const alertId = await addDocument<Omit<StockAlert, 'id'>>('stockAlerts', alertData);
 
     // 2. Use the new filtering system to distribute alerts to eligible suppliers
     const alert: StockAlert = { id: alertId, ...alertData };
-    await distributeAlertToSuppliers(alert);
+    await distributeAlertToSuppliers(alert, alert.supplierId);
 
     // 3. Reward the user with airtime
     await rewardUserWithAirtime(userPhone, hospitalId, alertId);
@@ -205,7 +206,7 @@ async function processUSSDLevel(
   session: USSDSession,
   userInput: string,
   user: UserData | null
-): Promise<{ response: string; endSession: boolean; nextLevel?: number; sessionData?: any }> {
+): Promise<{ response: string; endSession: boolean; nextLevel?: number; sessionData?: Record<string, unknown> }> {
   const currentLevel = session.currentLevel;
   const sessionData = session.sessionData;
 
@@ -287,7 +288,7 @@ async function processUSSDLevel(
 
     case 3:
       // Drug category selection
-      const categories = sessionData.categories || [];
+      const categories: string[] = Array.isArray(sessionData.categories) ? sessionData.categories : [];
       const categoryIndex = parseInt(userInput) - 1;
 
       if (userInput === '0') {
@@ -323,10 +324,10 @@ async function processUSSDLevel(
 
     case 4:
       // Drug selection
-      const categoryDrugs = sessionData.categoryDrugs || [];
+      const categoryDrugs = Array.isArray(sessionData.categoryDrugs) ? sessionData.categoryDrugs : [];
 
       if (userInput === '0') {
-        const categories = sessionData.categories || [];
+        const categories = Array.isArray(sessionData.categories) ? sessionData.categories : [];
         const categoryList = categories.map((cat, index) => `${index + 1}. ${cat}`).join('\n');
         return {
           response: `Select drug category:\n${categoryList}\n0. Back`,
@@ -386,16 +387,16 @@ async function processUSSDLevel(
           session.phoneNumber,
           user!.uid,
           user!.facilityName || user!.name || 'Unknown Hospital',
-          sessionData.selectedDrug.id,
-          sessionData.selectedDrug.name,
-          sessionData.quantity,
+          (sessionData.selectedDrug as { id: string; name: string }).id,
+          (sessionData.selectedDrug as { id: string; name: string }).name,
+          Number(sessionData.quantity),
           selectedUrgency,
           { address: user!.location }
         );
 
         if (success) {
           return {
-            response: `✅ Alert submitted successfully!\n\nDrug: ${sessionData.selectedDrug.name}\nQuantity: ${sessionData.quantity}\nUrgency: ${selectedUrgency.toUpperCase()}\n\nSuppliers have been notified. You'll receive airtime as reward. Thank you!`,
+            response: `✅ Alert submitted successfully!\n\nDrug: ${(sessionData.selectedDrug as { name: string }).name}\nQuantity: ${sessionData.quantity}\nUrgency: ${selectedUrgency.toUpperCase()}\n\nSuppliers have been notified. You'll receive airtime as reward. Thank you!`,
             endSession: true
           };
         } else {
@@ -471,7 +472,7 @@ async function processUSSDLevel(
           response: `✅ Registration successful!\nWelcome ${sessionData.name}!\n\nYou can now report stock alerts. Dial *789*12345# anytime.`,
           endSession: true
         };
-      } catch (error) {
+      } catch {
         return {
           response: `❌ Registration failed. Please try again later.`,
           endSession: true
@@ -522,7 +523,7 @@ async function getUserAlerts(userId: string): Promise<{ response: string; endSes
       response,
       endSession: true
     };
-  } catch (error) {
+  } catch {
     return {
       response: `Unable to fetch alerts. Please try again later.`,
       endSession: true
