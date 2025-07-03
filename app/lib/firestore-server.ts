@@ -6,6 +6,9 @@ import {
   updateDoc,
   deleteDoc,
   getDoc,
+  getDocs,
+  query,
+  where,
   DocumentData,
   Timestamp
 } from 'firebase/firestore';
@@ -150,6 +153,95 @@ export const setDocument = async <T extends DocumentData>(
     console.log(`Document set in ${collectionName} with ID:`, documentId);
   } catch (error) {
     console.error(`Error setting document in ${collectionName}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Query documents by a field value
+ * @param collectionName - The name of the collection
+ * @param field - The field to query by
+ * @param value - The value to match
+ * @returns Promise<T[]> - Array of matching documents
+ */
+export const queryDocuments = async <T extends DocumentData>(
+  collectionName: string,
+  field: string,
+  value: any
+): Promise<T[]> => {
+  try {
+    const q = query(collection(db, collectionName), where(field, '==', value));
+    const querySnapshot = await getDocs(q);
+    const documents: T[] = [];
+
+    querySnapshot.forEach((doc) => {
+      documents.push({ id: doc.id, ...doc.data() } as T);
+    });
+
+    console.log(`Found ${documents.length} documents in ${collectionName} where ${field} == ${value}`);
+    return documents;
+  } catch (error) {
+    console.error(`Error querying documents in ${collectionName}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Get all documents from a collection
+ * @param collectionName - The name of the collection
+ * @returns Promise<T[]> - Array of all documents
+ */
+export const getAllDocuments = async <T extends DocumentData>(
+  collectionName: string
+): Promise<T[]> => {
+  try {
+    const querySnapshot = await getDocs(collection(db, collectionName));
+    const documents: T[] = [];
+
+    querySnapshot.forEach((doc) => {
+      documents.push({ id: doc.id, ...doc.data() } as T);
+    });
+
+    console.log(`Found ${documents.length} documents in ${collectionName}`);
+    return documents;
+  } catch (error) {
+    console.error(`Error getting all documents from ${collectionName}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Update a document by querying for it first
+ * @param collectionName - The name of the collection
+ * @param field - The field to query by
+ * @param value - The value to match
+ * @param updates - The data to update
+ * @returns Promise<boolean> - True if document was found and updated
+ */
+export const updateDocumentByQuery = async <T extends DocumentData>(
+  collectionName: string,
+  field: string,
+  value: any,
+  updates: Partial<T>
+): Promise<boolean> => {
+  try {
+    const q = query(collection(db, collectionName), where(field, '==', value));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const docRef = querySnapshot.docs[0].ref;
+      await updateDoc(docRef, {
+        ...updates,
+        updatedAt: new Date().toISOString()
+      });
+      console.log(`Document updated in ${collectionName} where ${field} == ${value}`);
+      return true;
+    } else {
+      console.log(`No document found in ${collectionName} where ${field} == ${value}`);
+      return false;
+    }
+  } catch (error) {
+    console.error(`Error updating document in ${collectionName}:`, error);
     throw error;
   }
 };

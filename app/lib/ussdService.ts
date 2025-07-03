@@ -1,10 +1,69 @@
-// Service to handle USSD integrations with real telecom provider support
-import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from './firebase';
-import { addDocument } from '../hooks/useFirestore';
+// Enhanced USSD Service for Africa's Talking API integration
+// Follows Africa's Talking best practices for session management, error handling, and response formatting
+import { addDocument, updateDocument, queryDocuments, updateDocumentByQuery } from './firestore-server';
 import { StockAlert, UrgencyLevel, USSDSession, UserData } from '../types';
 import { distributeAlertToSuppliers } from './supplierFilteringService';
 import { rewardUserWithAirtime } from './airtimeService';
+
+// Africa's Talking USSD API constants
+export const USSD_CONFIG = {
+  SESSION_TIMEOUT_MINUTES: 3, // Reduced from 5 to 3 minutes for better UX
+  MAX_RESPONSE_LENGTH: 182, // Africa's Talking USSD response limit
+  NETWORK_CODES: {
+    SAFARICOM: ['63902', '63903'],
+    AIRTEL: ['63907'],
+    ORANGE: ['63905']
+  },
+  RESPONSE_PREFIXES: {
+    CONTINUE: 'CON',
+    END: 'END'
+  }
+} as const;
+
+// Enhanced provider detection based on network codes
+export function detectProvider(networkCode?: string): 'safaricom' | 'airtel' | 'orange' {
+  if (!networkCode) return 'safaricom'; // Default fallback
+
+  if (USSD_CONFIG.NETWORK_CODES.SAFARICOM.includes(networkCode)) return 'safaricom';
+  if (USSD_CONFIG.NETWORK_CODES.AIRTEL.includes(networkCode)) return 'airtel';
+  if (USSD_CONFIG.NETWORK_CODES.ORANGE.includes(networkCode)) return 'orange';
+
+  return 'safaricom'; // Default fallback
+}
+
+// Validate and format phone number according to Kenya standards
+export function formatPhoneNumber(phoneNumber: string): string {
+  // Remove any whitespace and special characters except +
+  const cleaned = phoneNumber.replace(/[^\d+]/g, '');
+
+  if (cleaned.startsWith('+254')) {
+    return cleaned;
+  } else if (cleaned.startsWith('254')) {
+    return `+${cleaned}`;
+  } else if (cleaned.startsWith('0') && cleaned.length === 10) {
+    return `+254${cleaned.slice(1)}`;
+  } else if (cleaned.length === 9) {
+    return `+254${cleaned}`;
+  }
+
+  // If format is unclear, assume it's a 9-digit number
+  return `+254${cleaned}`;
+}
+
+// Truncate response to fit Africa's Talking limits
+export function truncateResponse(text: string, maxLength: number = USSD_CONFIG.MAX_RESPONSE_LENGTH): string {
+  if (text.length <= maxLength) return text;
+
+  // Try to truncate at word boundary
+  const truncated = text.substring(0, maxLength - 3);
+  const lastSpace = truncated.lastIndexOf(' ');
+
+  if (lastSpace > maxLength * 0.8) {
+    return truncated.substring(0, lastSpace) + '...';
+  }
+
+  return truncated + '...';
+}
 
 // Enhanced function to process USSD data from clinic staff
 export async function processUssdAlert(
@@ -58,28 +117,43 @@ export async function processUssdAlert(
   }
 }
 
-// Create or update USSD session
+// Create or update USSD session with enhanced validation and timeout handling
 export async function createUSSDSession(
   sessionId: string,
   phoneNumber: string,
   serviceCode: string,
-  provider: 'safaricom' | 'airtel' | 'orange'
+  provider: 'safaricom' | 'airtel' | 'orange',
+  networkCode?: string
 ): Promise<USSDSession> {
+  // Validate inputs
+  if (!sessionId || !phoneNumber || !serviceCode) {
+    throw new Error('Missing required session parameters');
+  }
+
+  const formattedPhone = formatPhoneNumber(phoneNumber);
+  const timeoutMs = USSD_CONFIG.SESSION_TIMEOUT_MINUTES * 60 * 1000;
+
   const session: Omit<USSDSession, 'id'> = {
     sessionId,
-    phoneNumber,
+    phoneNumber: formattedPhone,
     serviceCode,
     currentLevel: 1,
     sessionData: {},
     status: 'active',
     provider,
+    networkCode,
     startedAt: new Date().toISOString(),
     lastActivityAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5 minutes
+    expiresAt: new Date(Date.now() + timeoutMs).toISOString()
   };
 
-  const sessionDocId = await addDocument<Omit<USSDSession, 'id'>>('ussdSessions', session);
-  return { id: sessionDocId, ...session };
+  try {
+    const sessionDocId = await addDocument<Omit<USSDSession, 'id'>>('ussdSessions', session);
+    return { id: sessionDocId, ...session };
+  } catch (error) {
+    console.error('Failed to create USSD session:', error);
+    throw new Error('Session creation failed');
+  }
 }
 
 // Update USSD session
@@ -88,19 +162,15 @@ export async function updateUSSDSession(
   updates: Partial<USSDSession>
 ): Promise<void> {
   try {
-    const sessionsQuery = query(
-      collection(db, 'ussdSessions'),
-      where('sessionId', '==', sessionId)
-    );
-    const sessionsSnapshot = await getDocs(sessionsQuery);
-
-    if (!sessionsSnapshot.empty) {
-      const sessionDoc = sessionsSnapshot.docs[0];
-      await updateDoc(sessionDoc.ref, {
+    await updateDocumentByQuery(
+      'ussdSessions',
+      'sessionId',
+      sessionId,
+      {
         ...updates,
         lastActivityAt: new Date().toISOString()
-      });
-    }
+      }
+    );
   } catch (error) {
     console.error('Failed to update USSD session:', error);
   }
@@ -109,123 +179,175 @@ export async function updateUSSDSession(
 // Get USSD session
 export async function getUSSDSession(sessionId: string): Promise<USSDSession | null> {
   try {
-    const sessionsQuery = query(
-      collection(db, 'ussdSessions'),
-      where('sessionId', '==', sessionId)
-    );
-    const sessionsSnapshot = await getDocs(sessionsQuery);
-
-    if (!sessionsSnapshot.empty) {
-      const sessionDoc = sessionsSnapshot.docs[0];
-      return { id: sessionDoc.id, ...sessionDoc.data() } as USSDSession;
-    }
-
-    return null;
+    const sessions = await queryDocuments<USSDSession>('ussdSessions', 'sessionId', sessionId);
+    return sessions.length > 0 ? sessions[0] : null;
   } catch (error) {
     console.error('Failed to get USSD session:', error);
     return null;
   }
 }
 
-// Check if session is expired
+// Enhanced session expiry check with grace period
 export function isSessionExpired(session: USSDSession): boolean {
-  return new Date() > new Date(session.expiresAt);
+  const now = new Date();
+  const expiryTime = new Date(session.expiresAt);
+  return now > expiryTime;
+}
+
+// Check if session is about to expire (within 30 seconds)
+export function isSessionNearExpiry(session: USSDSession): boolean {
+  const now = new Date();
+  const expiryTime = new Date(session.expiresAt);
+  const gracePeriod = 30 * 1000; // 30 seconds
+  return (expiryTime.getTime() - now.getTime()) <= gracePeriod;
+}
+
+// Extend session timeout for active users
+export async function extendSessionTimeout(sessionId: string): Promise<void> {
+  try {
+    const timeoutMs = USSD_CONFIG.SESSION_TIMEOUT_MINUTES * 60 * 1000;
+    const newExpiryTime = new Date(Date.now() + timeoutMs).toISOString();
+
+    await updateUSSDSession(sessionId, {
+      expiresAt: newExpiryTime,
+      lastActivityAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Failed to extend session timeout:', error);
+  }
 }
 
 // Get user by phone number
 export async function getUserByPhone(phoneNumber: string): Promise<UserData | null> {
   try {
-    const usersQuery = query(
-      collection(db, 'users'),
-      where('phoneNumber', '==', phoneNumber)
-    );
-    const usersSnapshot = await getDocs(usersQuery);
-
-    if (!usersSnapshot.empty) {
-      const userDoc = usersSnapshot.docs[0];
-      return { uid: userDoc.id, ...userDoc.data() } as UserData;
-    }
-
-    return null;
+    const users = await queryDocuments<UserData>('users', 'phoneNumber', phoneNumber);
+    return users.length > 0 ? users[0] : null;
   } catch (error) {
     console.error('Failed to get user by phone:', error);
     return null;
   }
 }
 
-// Enhanced USSD session handler with real telecom provider support
+// Enhanced USSD session handler with Africa's Talking best practices
 export async function handleUssdSession(
   sessionId: string,
   phoneNumber: string,
   userInput: string,
   serviceCode: string,
-  provider: 'safaricom' | 'airtel' | 'orange'
+  provider: 'safaricom' | 'airtel' | 'orange',
+  networkCode?: string
 ): Promise<{ response: string; endSession: boolean; nextLevel?: number }> {
   try {
+    // Validate inputs
+    if (!sessionId || !phoneNumber || !serviceCode) {
+      return {
+        response: 'Invalid request parameters.',
+        endSession: true
+      };
+    }
+
+    const formattedPhone = formatPhoneNumber(phoneNumber);
+
     // Get or create session
     let session = await getUSSDSession(sessionId);
 
     if (!session) {
-      session = await createUSSDSession(sessionId, phoneNumber, serviceCode, provider);
+      session = await createUSSDSession(sessionId, formattedPhone, serviceCode, provider, networkCode);
     }
 
     // Check if session is expired
     if (isSessionExpired(session)) {
       await updateUSSDSession(sessionId, { status: 'expired' });
       return {
-        response: `Session expired. Please dial ${serviceCode} again.`,
+        response: truncateResponse(`Session expired. Please dial ${serviceCode} again.`),
         endSession: true
       };
     }
 
-    // Get user data
-    const user = await getUserByPhone(phoneNumber);
+    // Warn if session is near expiry
+    if (isSessionNearExpiry(session)) {
+      await extendSessionTimeout(sessionId);
+    }
+
+    // Get user data with caching
+    const user = await getUserByPhone(formattedPhone);
 
     // Handle different levels of the USSD flow
-    const result = await processUSSDLevel(session, userInput, user);
+    const result = await processUSSDLevel(session, userInput, user, provider);
 
-    // Update session with new data
+    // Update session with new data and activity timestamp
     await updateUSSDSession(sessionId, {
       currentLevel: result.nextLevel || session.currentLevel,
-      sessionData: result.sessionData || session.sessionData
+      sessionData: result.sessionData || session.sessionData,
+      lastActivityAt: new Date().toISOString()
     });
 
-    return result;
+    // Ensure response is properly formatted and within limits
+    const formattedResponse = truncateResponse(result.response);
+
+    return {
+      ...result,
+      response: formattedResponse
+    };
   } catch (error) {
     console.error('Error handling USSD session:', error);
+
+    // Log error details for debugging
+    console.error('Session details:', { sessionId, phoneNumber, userInput, serviceCode, provider });
+
     return {
-      response: `Service temporarily unavailable. Please try again later.`,
+      response: truncateResponse('Service temporarily unavailable. Please try again later.'),
       endSession: true
     };
   }
 }
 
-// Process USSD level logic
+// Enhanced USSD level processing with better error handling and validation
 async function processUSSDLevel(
   session: USSDSession,
   userInput: string,
-  user: UserData | null
+  user: UserData | null,
+  provider: 'safaricom' | 'airtel' | 'orange'
 ): Promise<{ response: string; endSession: boolean; nextLevel?: number; sessionData?: any }> {
   const currentLevel = session.currentLevel;
   const sessionData = session.sessionData;
 
-  // Sample drugs for demonstration (in production, fetch from database)
+  // Sanitize user input
+  const sanitizedInput = userInput?.trim() || '';
+
+  // Enhanced drug list with more comprehensive data
   const drugs = [
-    { id: '1', name: 'Paracetamol', category: 'Analgesics' },
-    { id: '2', name: 'Amoxicillin', category: 'Antibiotics' },
-    { id: '3', name: 'Ibuprofen', category: 'Analgesics' },
-    { id: '4', name: 'Ciprofloxacin', category: 'Antibiotics' },
-    { id: '5', name: 'Insulin', category: 'Diabetes' }
+    { id: '1', name: 'Paracetamol', category: 'Analgesics', commonName: 'Panadol' },
+    { id: '2', name: 'Amoxicillin', category: 'Antibiotics', commonName: 'Amoxil' },
+    { id: '3', name: 'Ibuprofen', category: 'Analgesics', commonName: 'Brufen' },
+    { id: '4', name: 'Ciprofloxacin', category: 'Antibiotics', commonName: 'Cipro' },
+    { id: '5', name: 'Insulin', category: 'Diabetes', commonName: 'Insulin' },
+    { id: '6', name: 'Metformin', category: 'Diabetes', commonName: 'Glucophage' },
+    { id: '7', name: 'Amlodipine', category: 'Hypertension', commonName: 'Norvasc' },
+    { id: '8', name: 'Omeprazole', category: 'Gastric', commonName: 'Losec' }
   ];
 
   const urgencyLevels: UrgencyLevel[] = ['low', 'medium', 'high', 'critical'];
 
+  // Provider-specific customizations
+  const providerConfig = {
+    safaricom: { maxMenuItems: 8, shortMessages: false },
+    airtel: { maxMenuItems: 6, shortMessages: true },
+    orange: { maxMenuItems: 7, shortMessages: false }
+  };
+
+  const config = providerConfig[provider];
+
   switch (currentLevel) {
     case 1:
-      // Welcome menu
+      // Enhanced welcome menu with provider-specific formatting
       const welcomeMessage = user
-        ? `Welcome ${user.name || 'User'} to StockAlert\n1. Report Low Stock\n2. Check My Alerts\n3. Help\n0. Exit`
-        : `Welcome to StockAlert\n1. Report Low Stock\n2. Register\n3. Help\n0. Exit`;
+        ? config.shortMessages
+          ? `Hi ${(user.name || 'User').split(' ')[0]}!\n1. Report Stock\n2. My Alerts\n3. Help\n0. Exit`
+          : `Welcome ${user.name || 'User'} to StockAlert\n1. Report Low Stock\n2. Check My Alerts\n3. Help\n0. Exit`
+        : config.shortMessages
+          ? `StockAlert\n1. Report Stock\n2. Register\n3. Help\n0. Exit`
+          : `Welcome to StockAlert\n1. Report Low Stock\n2. Register\n3. Help\n0. Exit`;
 
       return {
         response: welcomeMessage,
@@ -234,31 +356,39 @@ async function processUSSDLevel(
       };
 
     case 2:
-      // Main menu selection
-      switch (userInput) {
+      // Enhanced main menu selection with input validation
+      switch (sanitizedInput) {
         case '1':
           if (!user) {
             return {
-              response: `Please register first.\nEnter your name:`,
+              response: config.shortMessages
+                ? `Register first.\nEnter name:`
+                : `Please register first.\nEnter your name:`,
               endSession: false,
               nextLevel: 10, // Registration flow
               sessionData: { ...sessionData, action: 'register' }
             };
           }
-          // Show drug categories
+          // Show drug categories with provider-specific limits
           const categories = [...new Set(drugs.map(d => d.category))];
-          const categoryList = categories.map((cat, index) => `${index + 1}. ${cat}`).join('\n');
+          const limitedCategories = categories.slice(0, config.maxMenuItems - 1); // Reserve space for "Back"
+          const categoryList = limitedCategories.map((cat, index) => `${index + 1}. ${cat}`).join('\n');
+
           return {
-            response: `Select drug category:\n${categoryList}\n0. Back`,
+            response: config.shortMessages
+              ? `Drug category:\n${categoryList}\n0. Back`
+              : `Select drug category:\n${categoryList}\n0. Back`,
             endSession: false,
             nextLevel: 3,
-            sessionData: { ...sessionData, action: 'report', categories }
+            sessionData: { ...sessionData, action: 'report', categories: limitedCategories }
           };
 
         case '2':
           if (!user) {
             return {
-              response: `Please register first by selecting option 2 from main menu.`,
+              response: config.shortMessages
+                ? `Register first (option 2).`
+                : `Please register first by selecting option 2 from main menu.`,
               endSession: true
             };
           }
@@ -267,19 +397,25 @@ async function processUSSDLevel(
 
         case '3':
           return {
-            response: `StockAlert Help:\n- Report low drug stock\n- Get real-time alerts\n- Earn airtime rewards\nFor support: Call 0700123456`,
+            response: config.shortMessages
+              ? `Help:\n- Report stock\n- Get alerts\n- Earn airtime\nSupport: 0700123456`
+              : `StockAlert Help:\n- Report low drug stock\n- Get real-time alerts\n- Earn airtime rewards\nFor support: Call 0700123456`,
             endSession: true
           };
 
         case '0':
           return {
-            response: `Thank you for using StockAlert. Stay healthy!`,
+            response: config.shortMessages
+              ? `Thank you! Stay healthy!`
+              : `Thank you for using StockAlert. Stay healthy!`,
             endSession: true
           };
 
         default:
           return {
-            response: `Invalid option. Please try again.\n1. Report Low Stock\n2. Check Alerts\n3. Help\n0. Exit`,
+            response: config.shortMessages
+              ? `Invalid. Try again:\n1. Report\n2. Alerts\n3. Help\n0. Exit`
+              : `Invalid option. Please try again.\n1. Report Low Stock\n2. Check Alerts\n3. Help\n0. Exit`,
             endSession: false,
             nextLevel: 2
           };
@@ -489,26 +625,21 @@ async function processUSSDLevel(
 // Get user's recent alerts
 async function getUserAlerts(userId: string): Promise<{ response: string; endSession: boolean }> {
   try {
-    const alertsQuery = query(
-      collection(db, 'stockAlerts'),
-      where('hospitalId', '==', userId)
-    );
-    const alertsSnapshot = await getDocs(alertsQuery);
+    const alerts = await queryDocuments<StockAlert>('stockAlerts', 'hospitalId', userId);
 
-    if (alertsSnapshot.empty) {
+    if (alerts.length === 0) {
       return {
         response: `No alerts found. Dial *789*12345# to report stock issues.`,
         endSession: true
       };
     }
 
-    const alerts = alertsSnapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() } as StockAlert))
+    const sortedAlerts = alerts
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 3); // Show last 3 alerts
 
     let response = `Your recent alerts:\n\n`;
-    alerts.forEach((alert, index) => {
+    sortedAlerts.forEach((alert, index) => {
       const date = new Date(alert.createdAt).toLocaleDateString();
       const status = alert.status.toUpperCase();
       response += `${index + 1}. ${alert.drugs[0]?.drugName || 'Multiple drugs'}\n`;

@@ -1,6 +1,6 @@
 // Service to handle airtime rewards using Africa's Talking
 import AfricasTalking from 'africastalking';
-import { addDocument } from '../hooks/useFirestore';
+import { addDocument } from './firestore-server';
 import { AirtimeReward } from '../types';
 
 // Initialize Africa's Talking with unified credentials

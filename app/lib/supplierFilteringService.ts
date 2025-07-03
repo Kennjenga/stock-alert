@@ -1,14 +1,12 @@
 // Service to handle supplier filtering and alert distribution
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from './firebase';
-import { 
-  StockAlert, 
-  SupplierPreferences, 
-  UserData, 
+import {
+  StockAlert,
+  SupplierPreferences,
+  UserData,
   AlertDistribution,
-  UrgencyLevel 
+  UrgencyLevel
 } from '../types';
-import { addDocument } from '../hooks/useFirestore';
+import { addDocument, queryDocuments, getAllDocuments } from './firestore-server';
 import { sendSMS, formatStockAlertSMS, formatMultipleDrugsAlertSMS } from './smsService';
 
 // Calculate distance between two coordinates (Haversine formula)
@@ -50,23 +48,10 @@ function isWithinBusinessHours(businessHours?: SupplierPreferences['businessHour
 export async function getEligibleSuppliers(alert: StockAlert): Promise<UserData[]> {
   try {
     // Get all suppliers
-    const suppliersQuery = query(
-      collection(db, 'users'),
-      where('role', '==', 'supplier')
-    );
-    const suppliersSnapshot = await getDocs(suppliersQuery);
-    const allSuppliers = suppliersSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as UserData[];
+    const allSuppliers = await queryDocuments<UserData>('users', 'role', 'supplier');
 
-    // Get supplier preferences
-    const preferencesQuery = query(collection(db, 'supplierPreferences'));
-    const preferencesSnapshot = await getDocs(preferencesQuery);
-    const allPreferences = preferencesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as SupplierPreferences[];
+    // Get all supplier preferences
+    const allPreferences = await getAllDocuments<SupplierPreferences>('supplierPreferences');
 
     const eligibleSuppliers: UserData[] = [];
 
@@ -206,12 +191,8 @@ export async function distributeAlertToSuppliers(alert: StockAlert): Promise<voi
 async function sendAlertToSupplier(supplier: UserData, alert: StockAlert): Promise<void> {
   try {
     // Get supplier preferences for notification method
-    const preferencesQuery = query(
-      collection(db, 'supplierPreferences'),
-      where('supplierId', '==', supplier.uid)
-    );
-    const preferencesSnapshot = await getDocs(preferencesQuery);
-    const preferences = preferencesSnapshot.docs[0]?.data() as SupplierPreferences;
+    const preferencesResults = await queryDocuments<SupplierPreferences>('supplierPreferences', 'supplierId', supplier.uid);
+    const preferences = preferencesResults[0];
 
     const notificationMethods = preferences?.notificationMethods || ['sms'];
 
@@ -229,11 +210,11 @@ async function sendAlertToSupplier(supplier: UserData, alert: StockAlert): Promi
   }
 }
 
-// Send SMS alert to supplier
+// Send SMS alert to supplier via API
 async function sendSMSAlert(supplier: UserData, alert: StockAlert): Promise<void> {
   try {
     let message: string;
-    
+
     if (alert.drugs.length === 1) {
       const drug = alert.drugs[0];
       message = formatStockAlertSMS(
@@ -252,6 +233,7 @@ async function sendSMSAlert(supplier: UserData, alert: StockAlert): Promise<void
       );
     }
 
+    // Call SMS service directly
     const smsResponse = await sendSMS(supplier.phoneNumber!, message, alert.id);
 
     // Log the distribution
@@ -261,9 +243,9 @@ async function sendSMSAlert(supplier: UserData, alert: StockAlert): Promise<void
       supplierName: supplier.name || supplier.facilityName || 'Unknown',
       notificationMethod: 'sms',
       status: smsResponse.success ? 'sent' : 'failed',
-      sentAt: smsResponse.success ? new Date().toISOString() : undefined,
-      failureReason: smsResponse.success ? undefined : smsResponse.error,
-      messageId: smsResponse.messageId,
+      sentAt: smsResponse.success ? new Date().toISOString() : null,
+      failureReason: smsResponse.success ? null : smsResponse.error,
+      messageId: smsResponse.messageId || null,
       createdAt: new Date().toISOString()
     };
 
@@ -273,3 +255,7 @@ async function sendSMSAlert(supplier: UserData, alert: StockAlert): Promise<void
     console.error(`Error sending SMS alert to supplier ${supplier.uid}:`, error);
   }
 }
+
+
+
+

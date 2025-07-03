@@ -200,7 +200,7 @@ export interface SMSDelivery {
   updatedAt: string;
 }
 
-// USSD session management
+// Enhanced USSD session management with Africa's Talking compliance
 export interface USSDSession {
   id: string;
   sessionId: string;
@@ -210,6 +210,7 @@ export interface USSDSession {
   sessionData: Record<string, any>; // Store user inputs and state
   status: 'active' | 'completed' | 'expired' | 'cancelled';
   provider: 'safaricom' | 'airtel' | 'orange';
+  networkCode?: string; // Africa's Talking network code for provider identification
   startedAt: string;
   lastActivityAt: string;
   completedAt?: string;

@@ -59,13 +59,13 @@ export async function sendSMS(
         message: message,
         status: recipient.status === 'Success' ? 'sent' : 'failed',
         provider: 'africastalking',
-        cost: recipient.cost ? parseFloat(recipient.cost.replace('KES ', '')) : undefined,
-        failureReason: recipient.status !== 'Success' ? recipient.status : undefined,
         retryCount: 0,
         maxRetries: 3,
-        alertId: alertId,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        ...(recipient.cost && { cost: parseFloat(recipient.cost.replace('KES ', '')) }),
+        ...(recipient.status !== 'Success' && { failureReason: recipient.status }),
+        ...(alertId && { alertId })
       };
 
       // Save delivery record to database
@@ -111,9 +111,9 @@ export async function sendSMS(
         failureReason: error instanceof Error ? error.message : 'Unknown error',
         retryCount: 0,
         maxRetries: 3,
-        alertId: alertId,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        ...(alertId && { alertId })
       };
 
       await addDocument<Omit<SMSDelivery, 'id'>>('smsDeliveries', failedRecord);
