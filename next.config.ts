@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
         assert: false,
         os: false,
         path: false,
+        async_hooks: false, // Add this to resolve Africa's Talking SDK warnings
       };
     }
     return config;
