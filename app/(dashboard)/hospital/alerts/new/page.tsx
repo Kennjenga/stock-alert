@@ -140,20 +140,20 @@ export default function NewAlertPage() {
       console.log('Alert data being saved:', JSON.stringify(alertData, null, 2));
       
       // Check for undefined values recursively
-      const hasUndefined = (obj: any, path = ''): string[] => {
+      const hasUndefined = (obj: Record<string, unknown>, path = ''): string[] => {
         const undefinedFields: string[] = [];
         for (const [key, value] of Object.entries(obj)) {
           const currentPath = path ? `${path}.${key}` : key;
           if (value === undefined) {
             undefinedFields.push(currentPath);
           } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-            undefinedFields.push(...hasUndefined(value, currentPath));
+            undefinedFields.push(...hasUndefined(value as Record<string, unknown>, currentPath));
           } else if (Array.isArray(value)) {
             value.forEach((item, index) => {
               if (item === undefined) {
                 undefinedFields.push(`${currentPath}[${index}]`);
               } else if (item && typeof item === 'object') {
-                undefinedFields.push(...hasUndefined(item, `${currentPath}[${index}]`));
+                undefinedFields.push(...hasUndefined(item as Record<string, unknown>, `${currentPath}[${index}]`));
               }
             });
           }
